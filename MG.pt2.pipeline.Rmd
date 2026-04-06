@@ -1,0 +1,680 @@
+---
+title: "Ch3Pt2Reprocess"
+output: html_document
+date: "2025-10-02"
+---
+
+```{r}
+setwd("/Users/madelina/Desktop/MG PT2")
+getwd()
+
+```
+
+```{r}
+# Installing/loading packages
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+# Installing dada2 package from CRAN
+install.packages("dada2", dependencies = TRUE)
+```
+
+```{r}
+# Loading dada2 package
+library(dada2)
+
+# Checking the installed version of dada2
+packageVersion("dada2")
+```
+
+```{r}
+library(ShortRead)
+library(dada2)
+library(Rcpp)
+```
+
+1. STARTED A NEW PROJECT 
+Overall, this code checks for the existence of a directory named fastqfiles in the current working directory. If the directory does not exist, it creates it and informs the user. If it does exist, it simply informs the user that the directory is already there. This is a common practice in R programming to ensure that the necessary directories are available for data storage or processing.
+```{r}
+# Checking Current Working Directory
+print(getwd())
+
+# Defining Path Relative to Current Directory
+path <- "fastqfiles/" 
+
+# Checking if Path Exists
+if (!file.exists(path)) {
+  # Creating Directory if it doesn't exist
+  dir.create(path)
+  print(paste("Created directory:", path))
+} else {
+  print(paste("Directory already exists:", path))
+}
+```
+
+2. Generates sorted lists of filenames - lists them by R1 & R2
+path: the directory containing the file path
+pattern: selecting files that contain that in their name
+sort: putting these files in alphabetically and stored in fnFs & fnRs
+```{r}
+fnFs <- sort(list.files(path, pattern = "_R1_16S_final.fastq", full.names = TRUE))
+
+fnRs <- sort(list.files(path, pattern = "_R2_16S_final.fastq", full.names = TRUE))
+```
+
+3. This is used to generate the list of sample names by extracting the 1st, 2nd & 3rd parts of the file name (this is more parts than usual but we have multiple experiments for this chapter, so it's fine)
+
+```{r}
+get.sample.name <- function(fname) {
+  parts <- strsplit(basename(fname), "_")[[1]]
+  parts[2:3]
+}
+
+sample.names <- unname(sapply(fnFs, get.sample.name))
+```
+
+```{r}
+print(sample.names)
+```
+
+```{r}
+print(fnFs)
+```
+```{r}
+print(fnRs)
+```
+5. identifying primers and all orientations of primers 
+```{r}
+FWD <- "GTGYCAGCMGCCGCGGTAA"  
+REV <- "GGACTACNVGGGTWTCTAAT"  
+```
+
+This is creating all orientations of the primers
+```{r}
+allOrients <- function(primer) {
+  require(Biostrings)
+  dna <- DNAString(primer)  # The Biostrings works w/ DNAString objects rather than character vectors
+  orients <- c(Forward = dna, Complement = complement(dna), Reverse = reverse(dna), 
+               RevComp = reverseComplement(dna))
+  return(sapply(orients, toString))  # Convert back to character vector
+}
+FWD.orients <- allOrients(FWD)
+REV.orients <- allOrients(REV)
+FWD.orients
+REV.orients
+
+```
+6. Filters and trims the original fastq files (fnFs and fnRs), removes reads with too many ambiguous bases (N's), and saves the filtered files in a subdirectory named "filtN" within the original directory. --so my filtN will be within fastqfiles folder in my MG PT2 Working directory
+
+*it takes a long time ~ about 30 mins - can see files being created in the FiltN folder??
+```{r}
+fnFs.filtN <- file.path(path, "filtN", basename(fnFs)) # Put N-filtered files in filtN/ subdirectory
+fnRs.filtN <- file.path(path, "filtN", basename(fnRs))
+filterAndTrim(fnFs, fnFs.filtN, fnRs, fnRs.filtN, maxN = 0, multithread = TRUE, compress=TRUE)
+```
+
+7. Double check: Looking for hits of primers in any orientation
+*we want this to be 0 ~ if not then we cut the sequences with the primers!
+yay no primers!!
+```{r}
+primerHits <- function(primer, fn) {
+  # Counts number of reads in which the primer is found
+  nhits <- vcountPattern(primer, sread(readFastq(fn)), fixed = FALSE)
+  return(sum(nhits > 0))
+}
+
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs.filtN[[4]]), 
+      FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = fnRs.filtN[[4]]), 
+      REV.ForwardReads = sapply(REV.orients, primerHits, fn = fnFs.filtN[[4]]), 
+      REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs.filtN[[4]]))
+```
+YAY
+
+8. TIME TO VISUALIZE THE RAW DATA!! QC plots
+a. Looking at quality profile R1 reads, first 25 samples*** 132 total 
+You are looking at where the line on the graphs begin to plummet (this is where the quality of the reads goes down) we want to cut prior to where the quality goes down. You should look at every single sample.
+
+```{r}
+plotQualityProfile(fnFs.filtN[c(1:13)]) 
+```
+```{r}
+plotQualityProfile(fnRs.filtN[c(1:13)])
+```
+**will truncate at 220 
+
+This next step takes a while ...  20-30 mins? 
+This is trimming based on quality profile plots cut off & uploading new, trimmed files into a folder (called trimmed) - to check if code is working look for files popping up in the new trimmed folder 
+
+truncLen=c(210,210), #specifies where to be truncated - leaves plenty of overlap
+maxN=0, #DADA does not allow ambiguous(N) bases, so 0 
+maxEE=c(2,2), #allow 2 expected errors in a read (for both forward & reverse reads)
+truncQ=2, #trims low quality bases from the ends of their reads (2 is threshold)
+rm.phix=TRUE, #remove reads matching phiX genome
+matchIDs=TRUE, #enforce matching between id-line sequence identifiers of F and R reads
+compress=TRUE, multithread=TRUE) #On Windows set multithread=FALSE
+
+```{r}
+print(fnFs)
+print(fnRs)
+```
+
+```{r}
+length(fnFs)
+length(fnRs)
+length(sample.names)
+length(fnFs.filtN)
+length(fnRs.filtN)
+```
+Filtering Reads to 225 bp based on QC plots above! 
+```{r}
+# List forward and reverse read files
+fnFs <- sort(list.files(path, pattern="_R1_16S_final.fastq", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="_R2_16S_final.fastq", full.names = TRUE))
+
+# Extract sample names - since multiple names that could be repetitive, had to be more distinct with the naming  
+sample.names <- sapply(strsplit(basename(fnFs), "_R1_"), `[`, 1)
+
+# Create output directory
+filt_path <- file.path(path, "trimmed")
+if(!dir.exists(filt_path)) dir.create(filt_path)
+
+# Construct output file paths
+filtFs <- file.path(filt_path, paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(filt_path, paste0(sample.names, "_R_filt.fastq.gz"))
+
+# Run filterAndTrim
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, 
+                     truncLen = c(225, 225),
+                     maxN = 0,
+                     maxEE = c(2, 2),
+                     truncQ = 2,
+                     rm.phix = TRUE,
+                     matchIDs = TRUE,
+                     compress = TRUE,
+                     multithread = TRUE)  # Use FALSE on Windows
+
+# Check and export results
+head(out)
+tail(out)
+write.csv(out, file = "out.csv", row.names = TRUE, quote = FALSE)
+
+```
+
+10. LEARNING ERROR RATES NEXT 
+Error rates typically range from .1%-1% per base pair sequence 
+Types of potential errors: PCR errors, sequencing errors, chimeric reads, contaminants
+This step is checking for the rates of errors in the reads
+It sets an option in the DADA2 pipeline to allow up to 30 iterations during the error rate consistency estimation step
+```{r}
+setDadaOpt(MAX_CONSIST=30) #increase number of cycles to allow convergence
+```
+
+This will take 40 mins
+```{r}
+errF <- learnErrors(filtFs, multithread=TRUE) 
+errR <- learnErrors(filtRs, multithread=TRUE)
+```
+
+124097175 total bases in 551543 reads from 3 samples will be used for learning the error rates.
+124097175 total bases in 551543 reads from 3 samples will be used for learning the error rates.
+
+11. Visualizing estimated error rates
+- error rates should decline with increasing qual score
+- the red line is based on definition of quality score alone
+- theblack line is estimated error rate after convergence
+- dots are observed error rate for each quality score
+- you want the black dots to roughly fall along the black line 
+
+```{r}
+plotErrors(errF, nominalQ=TRUE) 
+plotErrors(errR, nominalQ=TRUE) 
+```
+
+*Everything looks reasonable (no strong deviations from black lines and black points), so we proceed with confidence
+
+12. Deplicate Reads: 
+
+-  Dereplication in bioinformatics means grouping identical DNA sequences together and counting how many times each sequence appears. This helps speed up the analysis by avoiding repeating the same calculations for identical sequences : For example, if you have 100 copies of the same sequence, instead of treating each copy separately, dereplication counts it as one sequence with an abundance of 100.
+
+- In DADA2 it keeps track of the quality (or reliability) of each unique sequence. It calculates an average quality score for each sequence by considering the quality scores of all the copies. 
+
+-This helps DADA2 make fewer mistakes when it tries to figure out the true sequences from the noisy data generated by sequencing machines.
+*DADA2's denoising step can more effectively distinguish between true biological variants and sequencing artifacts
+
+- In simple terms, dereplication helps bioinformatics tools work faster by grouping identical sequences together, and DADA2 uses quality information to make better guesses about the real DNA sequences
+
+
+let's see if this works on here, if not will have to complete on the ondemand site for increased memory 
+
+```{r}
+derepFs <- derepFastq(filtFs, verbose=TRUE)
+derepRs <- derepFastq(filtRs, verbose=TRUE)
+# Name the derep-class objects by the sample names
+names(derepFs) <- sample.names
+names(derepRs) <- sample.names
+```
+it worked yay :) 
+
+13. Sample Inference: 
+-We are now ready to apply the core sample inference algorithm to the filtered and trimmed de-replicate reads, using the error rates identified above
+- essentially, this step is denoising the depreplicated reads using error rates (cleaning up the unique DNA sequences we found, using information about how often sequencing mistakes happen, to get a more accurate picture of the real DNA sequences)
+-dadaFs & dadaRs now stores the denoised, dereplicated sequences that are now cleaned up - along with also holding their respective abundances and quality scores (produced as a result of the algorithm)
+
+*this takes a while....like 1 hour. you can tell its running if you see samples popping up below. 
+```{r}
+dadaFs <- dada(derepFs, err=errF, multithread=TRUE)
+dadaRs <- dada(derepRs, err=errR, multithread=TRUE)
+```
+Inspecting the Returned dada-class object
+
+```{r}
+dadaFs[[1]]
+dadaRs[[1]]
+```
+Above, looking at the dada-class objects by sample
+- Will tell how many true (biologically-relevant) sequence variants from the unique sequences in the first sample for both the forward and reverse reads
+- Essentially, this tells us how much it denoised, filtered, and error-corrected the data - to make cleaned up reads (sequence variants) that are more biologically relevant!
+
+14. Merge Paired Reads 
+- We now merge the forward and reverse reads together to obtain the full denoised sequences.
+- Paired reads that do not exactly overlap are removed
+
+```{r}
+mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, minOverlap = 12,
+  maxMismatch = 0,
+  returnRejects = FALSE,
+  propagateCol = character(0),
+  justConcatenate = FALSE,
+  trimOverhang = FALSE,
+  verbose = TRUE)
+
+#Inspect the merger data.frame from the first sample
+head(mergers[[1]])
+```
+
+```{r}
+summary((mergers[[1]]))
+```
+We now have a data.frame for each sample with the merged sequence, its abundance, and the indices of the merged forward and reverse denoised sequences. Paired reads that did not exactly overlap were removed by mergePairs.:)
+
+15. Construct Sequence table!!
+
+***SEQTAB MADE USING MERGERS! 
+
+a higher-resolution version of the “OTU table” produced by classical methods. 
+```{r}
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab)
+saveRDS(seqtab, file="seqtab_MGPT2_16S.rds")
+write.csv(seqtab, file="seqtab_MGPT2_16S.csv")
+
+# Inspect distribution of sequence lengths
+table(nchar(getSequences(seqtab)))
+plot(table(nchar(getSequences(seqtab)))) #real variants appear to be right in that 240-270 window
+```
+*plot should have peak around 25bp (the V4 region of the 16S rRNA gene)
+
+
+More info: The sequence table is a matrix with rows corresponding to (and named by) the samples, and columns corresponding to (and named by) the sequence variants.This table contains 9966 ASVs (13 samples) and the lengths of our merged sequences fall within expected range for V4 region on the 16S rRNA gene (250ish)
+
+```{r}
+seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% seq(245,265)] #fairly conservative with length
+saveRDS(seqtab2, file="seqtab2_MGPT2_16S.rds")
+write.csv(seqtab2, file="seqtab2_MGPT2_16S.csv")
+```
+Sequences that are much longer or shorter than expected may be the result of non-specific priming, and may be worth removing. This is removing non-target-length sequences from my sequence table 
+
+^this is filtering reads AFTER they are merges also, which is different than the truncLength function above 
+
+6. Removing chimeras!!
+Chimeras are hybrid sequences formed when 2 or more different original sequences are fused. These are errors that must be removed from the reads. The core dada method removes substitution and indel errors, but chimeras remain. Fortunately, the accuracy of the sequences after denoising makes identifying chimeras easier than it is when dealing with fuzzy OTUs: chimeric sequences are identified if they can be reconstructed by combining left segment and right segment from 2 or more parent sequences. 
+
+This step for 26 samples takes 5mins. Removing chimeras and saving this new file 
+```{r}
+seqtab.nochim <- removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim) 
+saveRDS(seqtab.nochim, file="seqtab.nochim_MGPT2_16S.rds")
+write.csv(seqtab.nochim, file="seqtab.nochim_MGPT2_16S.csv")
+
+sum(seqtab.nochim)/sum(seqtab2)
+```
+Identified 550 bimeras out of 9935 input sequences.
+[1]   13 9385
+[1] 0.9534384
+A bimera = a 2 parent chimera. Essentially, this is telling us that 95% of the sequences were fine, so will continue!
+
+17. Track Sequence Reads 
+A final check of progressive, this will look at the number of reads that made it through each step in the pipeline. Sanity check! 
+```{r}
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(mergers, getN), rowSums(seqtab2), rowSums(seqtab.nochim))
+colnames(track) <- c("input", "filtered", "denoised", "merged", "tabled", "nonchim")
+rownames(track) <- sample.names
+head(track)
+tail(track)
+
+write.csv(track,file="MGPT2_16S_readstats.csv",row.names=TRUE,quote=FALSE)
+
+```
+            input filtered denoised merged tabled nonchim
+MM_MG2_B10 176388   161735   154742 145147 144927  140069
+MM_MG2_B11 169448   156630   148236 133604 133564  124609
+MM_MG2_B12 253533   233178   221215 198649 198528  187685
+MM_MG2_B5  142022   130904   125068 116925 116855  112803
+MM_MG2_B6  149587   134219   126892 116235 116235  113986
+MM_MG2_B7  157331   144495   138352 129207 128852  123784
+           input filtered denoised merged tabled nonchim
+MM_MG2_B9 165366   152320   146100 137352 137219  131627
+MM_MG2_C1 145214   133979   125891 115432 115396  113079
+MM_MG2_C2 163156   149121   141010 125781 125724  116624
+MM_MG2_C3 137519   124760   118137 107340 107251  103131
+MM_MG2_C4 182939   168110   160145 144607 144567  132220
+MM_NEG_F4  60111    53067    52846  51048  51030   49625
+
+*You are checking to make sure majority of raw reads were kept and that there is no over-large drop associated with any single step. No huge drops for any of the samples. The reads in NP will have to be removed from all other samples.
+
+18. Assign Taxonomy 
+
+This will take a long time. 30 minutes - 1 hour. Should be in a new file labelled "MGPT2_16s_taxa"
+assignTaxonomy: function in dada2 package. Assigns taxonomy of the seqtab.nochim matrix
+Multithread: how many thought processes can occur at the same time 
+*Make sure silva files are in the correct directory (for me this is the MG PT2: fastq files folder on my desktop)
+
+```{r}
+taxa <- assignTaxonomy(seqtab.nochim, "~/Desktop/MG PT2/fastqfiles/silva_nr99_v138.1_train_set.fa", multithread=TRUE)
+saveRDS(taxa, file="MGPT2_16S_taxa.rds") 
+```
+
+```{r}
+View(taxa)
+```
+*lots of genus missing, going to stick with family 
+*skipping add species step because not going to bother looking at species level 
+
+saving taxa file as a csv
+```{r}
+write.csv(taxa, file="MGPT2_16S_taxa.plus.csv")
+```
+
+19. handoff 2 phyloseq 
+Phyloseq is a package in r that helps with  import, storage, analysis, and graphical display of phylogenetic sequencing data. 
+
+ 
+Installing packages
+
+```{r}
+BiocManager::install("phyloseq")
+install.packages("Rmisc")
+```
+
+```{r}
+library('phyloseq')
+library('ggplot2')
+library(cowplot)
+library(ShortRead)
+library('Rmisc')
+```
+
+Reading in metadata csv file with additional info about samples. Make sure to add in metafile whatever you want to compare your microbiome data to (for this set of data, it is the different treatment types) 
+```{r}
+samples.out <- rownames(seqtab.nochim)
+samdf<-read.csv("Metadata_MGPT2.csv")
+head(samdf)
+rownames(samdf) <- samdf$Sample
+```
+```{r}
+View(samdf)
+View(seqtab.nochim)
+row.names(samdf) <- samdf$Sample
+```
+*make sure row names and order matches!
+
+This is combining seqtab.nochim with taxa.plus and samdf
+- ensure row names match!
+-REMAKE metadata in the order of the rows!*******very important!!!
+
+making phyloseq object! :) 
+```{r}
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
+               sample_data(samdf), 
+               tax_table(taxa)) 
+ps
+```
+results:
+
+phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 9385 taxa and 13 samples ]
+sample_data() Sample Data:       [ 13 samples by 3 sample variables ]
+tax_table()   Taxonomy Table:    [ 9385 taxa by 6 taxonomic ranks ]
+
+
+- TAX.GLOM function is aggregating similar ASV into taxonomic ranks (phylum, class, order, family, genus). Since I am interested in comparing microbiomes between treatments then I change my x to "Treatment." from my metadata. 
+
+Multiple reads can match an ASV - this is how you get abundance data. (ASV is the specific taxa being identified). This step takes a few minutes to run
+```{r}
+ps_glomfam <- tax_glom(ps, "Family")
+ps_glomgen <- tax_glom(ps, "Genus")
+```
+
+```{r}
+plot_bar(ps_glomfam, x="Transect", fill="Family")+
+  theme(legend.position="none")
+
+
+plot_bar(ps_glomgen, x="Transect", fill="Genus")+
+  theme(legend.position="none")
+```
+just looking at transect, not at neg controls 
+
+lets plot by sample this time
+
+```{r}
+plot_bar(ps_glomfam, x="Sample", fill="Family")+
+  theme(legend.position="none")
+```
+*neg should be smallest
+
+Making the ASV names shorter
+```{r}
+ids <- paste0("sq", seq(1, length(colnames(seqtab.nochim))))
+```
+BLAST could be completed next. This is to remove Eukaryotes. (AN extra step de-contamination step). Ondemand site to do the BLAST. We are not doing the BLAST because we are working specifically with bacterial primers. This is not a standard step, just an extra one if you really are scared of eukaryotes in your data. We will pull out euks from silva later, so not super important.
+
+
+A) First Renaming Stuff:
+This assigns the values in 'ids' to be the column names of the 'seqtab.nochim' table. Creating taxa2 by combining taxa with its row names. Now assigning values in ids to be the names of the taxa2 table. 
+
+Essentially, this is renaming stuff.
+
+seqtab.nochim ~ has the sequences (shortened to ids) as the columns, the samples as the rows, and the abundance is what is displayed
+```{r}
+colnames(seqtab.nochim)<-ids
+taxa2 <- cbind(taxa, rownames(taxa)) #retaining raw sequence info before renaming
+rownames(taxa2)<-ids
+```
+
+UPDATED phyloseq object
+
+This code constructs a phyloseq object named ps by combining the ASV table "seqtab.nochim", sample metadata "samdf", and NEW taxonomy table "taxa2" 
+
+```{r}
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
+               sample_data(samdf), 
+               tax_table(taxa2))
+ps
+```
+results from above: phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 9385 taxa and 13 samples ]
+sample_data() Sample Data:       [ 13 samples by 3 sample variables ]
+tax_table()   Taxonomy Table:    [ 9385 taxa by 7 taxonomic ranks ]
+
+Saving new (still contaminated) ps file, in case r crashes: 
+```{r}
+saveRDS(ps, file = "MGPT2.ps.rds")
+```
+
+B) Now, removing mitochondria, chloroplasts & non-bacteria taxa.
+
+First, identifying contaminants ~
+```{r}
+ps.mito <- subset_taxa(ps, (Family=="Mitochondria"))
+ps.mito
+```
+185 mito identified, will have to be removed 
+
+```{r}
+ps.chlor <- subset_taxa(ps, (Order=="Chloroplast"))
+ps.chlor
+```
+73 chloro identified, will have to be removed 
+
+```{r}
+ps.notbact <- subset_taxa(ps, (Kingdom!="Bacteria") | is.na(Kingdom))
+ps.notbact
+```
+ 376 non-bacteria sequences identified, will have to be removed
+ 
+```{r}
+ps.nomito <- subset_taxa(ps, (Family!="Mitochondria") | is.na(Family))
+ps.nomito
+```
+9385-185 = 9200 taxa 
+
+```{r}
+ps.nochlor <- subset_taxa(ps.nomito, (Order!="Chloroplast") | is.na(Order))
+ps.nochlor
+```
+9200- 73 = 9127
+*all mitochondria and chloroplasts removed
+
+```{r}
+ps.clean <- subset_taxa(ps.nochlor, (Kingdom=="Bacteria"))
+ps.clean
+```
+9127 - 376 = 8751 
+
+all mito, chloro, and non bacteria sequences removed! 
+
+```{r}
+saveRDS(ps.clean, file = "mgpt2.psclean.rds")
+```
+
+C) Just for funsies - This is how much archaea was identified 
+```{r}
+ps.arch <- subset_taxa(ps.nomito, (Kingdom=="Archaea"))
+ps.arch 
+```
+D) Removing negative controls from samples!
+
+Installing decontam package: 
+```{r}
+#BiocManager::install("decontam") #might already be installed
+```
+```{r}
+library(decontam)
+```
+
+This code first converts sample data (ps.clean) to dataframe. 
+Then it calculates the library size (total number of reads) for each sample in ps.clean and adds a new column 'library size' into the dataframe 'df'
+Then df is ordered in ascending order by library size
+The df$index creates a new column 'index' that contains sequential numbers from 1 to the number of rows in the dataframe (x axis in plot)
+
+ggplot: creates a scatterplot. Index is the x axis, library size is the y axis, and colors are the points by the treatment variable (this is because this is the variable we are comparing microbiome data to each other)
+
+
+```{r}
+df <- as.data.frame(sample_data(ps.clean)) # Put sample_data into a ggplot-friendly data.frame
+df$LibrarySize <- sample_sums(ps.clean)
+df <- df[order(df$LibrarySize),]
+df$Index <- seq(nrow(df))
+ggplot(data=df, aes(x=Index, y=LibrarySize, color=Sample)) + 
+  geom_point()
+```
+pink is the neg control, should be at the bottom so that is good 
+
+
+
+```{r}
+ggplot(data=df, aes(x=Index, y=LibrarySize, color=Transect)) + 
+  geom_point()
+```
+*really no trends
+
+Contaminant Table:
+-The first line creates a new column 'is.neg' in the object of 'ps.clean'.checks to make sure the 'Sample' column in the metadata is equal to '16S' - this is the negative control 
+
+-The next line uses "isContaminant" function to identify potential contaminants in ps.clean - puts .5 as a threshold (if a feature has a 50% or more probability of being a contaminant, it is removed)
+
+-The last line creates a table of the contaminant column in the new contamdf.prev dataframe. This takes a minute to run. 
+```{r}
+sample_data(ps.clean)$is.neg <- sample_data(ps.clean)$Sample == "MM_NEG_F4"
+contamdf.prev <- isContaminant(ps.clean, neg="is.neg",threshold=0.5)
+table(contamdf.prev$contaminant)
+```
+4 ASVs were classified as contaminants 
+
+The first line applies a transformation to the sample counts in the ps.clean (either presence or absent)
+- The next line is identifying the neg controls in the ps.pa object 
+- The final line is identifying the samples that are not negative controls 
+Summary: transforming to presence/absence data and subsetting samples that are neg controls vs all other samples (only neg control samples are Sample==MM_NEG_F4)
+
+```{r}
+ps.pa <- transform_sample_counts(ps.clean, function(abund) 1*(abund>0))
+ps.pa.neg <- prune_samples(sample_data(ps.pa)$Sample == "MM_NEG_F4", ps.pa) 
+ps.pa.pos <- prune_samples(sample_data(ps.pa)$Sample != "MM_NEG_F4", ps.pa)
+```
+
+
+Make data.frame of prevalence in positive and negative samples
+```{r}
+df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa),
+                    contaminant=contamdf.prev$contaminant)
+ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminant)) + geom_point() +
+  xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)")
+```
+This is visualizing the contaminants within all the samples. (contaminants identified using negative control). Contaminants are blue. ~ should be only 4 dots 
+
+
+This is removing contaminant taxa (identified above) from all your samples (from the phyloseq object)
+```{r}
+ps.clean1 <- prune_taxa(!contamdf.prev$contaminant,ps.clean)
+```
+ps.clean1 has contaminants removed ~ but still the negative controls in there 
+
+
+Now, you are removing your negative controls as well - because we do not need these anymore
+```{r}
+ps.cleaner <- subset_samples(ps.clean1,(Sample!="MM_NEG_F4"))
+ps.cleaner
+```
+
+```{r}
+ps.cleaner
+```
+phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 8747 taxa and 12 samples ]
+sample_data() Sample Data:       [ 12 samples by 4 sample variables ]
+tax_table()   Taxonomy Table:    [ 8747 taxa by 7 taxonomic ranks ]
+
+CONTAMINANTION STEP SUMMARY:
+
+- all mitochondrial, chloroplats, and non bacterial samples were removed
+- for negative controls ~  ASVs statistically identified as contaminants (by decontam) are removed from all samples.
+(ASVs that appear in both negative controls and real samples but weren’t flagged as contaminants remain in the dataset, since they’re not considered likely contaminants)
+- This approach keeps potentially real biological taxa that might show up at low levels in negative controls.
+- the negative control sample itself was also removed (12 samples now) 
+
+SAVING FILES
+```{r}
+saveRDS(ps.cleaner, file ="MGPT2.ps.cleaner.rds") #IMPORTANT ONE USED FOR STATS
+```
+This is turning the cleaned asv data (ps.cleaner) along with the metadata into an otu table, and then a dataframe. This is to help with future r manipulations and steps.
+```{r}
+seqtab.cleaner <- data.frame(ps.cleaner@otu_table)
+samdf.cleaner <- data.frame(ps.cleaner@sam_data)
+write.csv(samdf.cleaner)
+write.csv(samdf.cleaner, "samdf.cleaner.csv", row.names = FALSE)
+```
+*not rarefying, so can complete stats next :-)
+
+
