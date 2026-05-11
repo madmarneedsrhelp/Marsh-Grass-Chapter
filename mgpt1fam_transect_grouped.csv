@@ -1,0 +1,107 @@
+"","Transect","Family_grouped","Percentage"
+"1",1,"A4b",3.80689863601517
+"2",1,"Assigned at Higher Taxonomy",15.8438446236181
+"3",1,"Bacteroidetes BD2-2",1.00930446804109
+"4",1,"Chromatiaceae",1.31973984140734
+"5",1,"Cryomorphaceae",1.09012251378471
+"6",1,"Cyclobacteriaceae",3.05308797826168
+"7",1,"Desulfobulbaceae",1.61441531999164
+"8",1,"Desulfocapsaceae",3.46674205067329
+"9",1,"Desulfosarcinaceae",1.30456862851694
+"10",1,"Flavobacteriaceae",11.3103843365146
+"11",1,"Halieaceae",3.61910664345047
+"12",1,"Pirellulaceae",2.40697168278729
+"13",1,"Puniceicoccaceae",1.43970797452925
+"14",1,"Rare Families",28.8866744608595
+"15",1,"Rhodobacteraceae",8.67563030801754
+"16",1,"Saprospiraceae",5.30170772440197
+"17",1,"Unknown Family",2.27589831190534
+"18",1,"Woeseiaceae",3.57519449722402
+"19",2,"A4b",4.5271505128613
+"20",2,"Assigned at Higher Taxonomy",15.6414491374256
+"21",2,"Bacteroidetes BD2-2",1.20543392834678
+"22",2,"Chromatiaceae",1.12662082224567
+"23",2,"Cryomorphaceae",1.29720190298662
+"24",2,"Cyclobacteriaceae",3.23257873268218
+"25",2,"Desulfobulbaceae",1.47152347899308
+"26",2,"Desulfocapsaceae",2.98368947171107
+"27",2,"Desulfosarcinaceae",1.05977126564335
+"28",2,"Flavobacteriaceae",12.0138705994329
+"29",2,"Halieaceae",3.3690667037183
+"30",2,"Phycisphaeraceae",1.0072176813282
+"31",2,"Pirellulaceae",2.31321222646587
+"32",2,"Puniceicoccaceae",1.58542603819436
+"33",2,"Rare Families",26.9787943674267
+"34",2,"Rhodobacteraceae",8.61473356079137
+"35",2,"Saprospiraceae",5.37434786527537
+"36",2,"Spirochaetaceae",1.30509607646233
+"37",2,"Unknown Family",2.03953388061336
+"38",2,"Woeseiaceae",2.85328174739547
+"39",3,"A4b",4.76317278244778
+"40",3,"Assigned at Higher Taxonomy",15.6765475644902
+"41",3,"Bacteroidetes BD2-2",1.31382410854386
+"42",3,"Chromatiaceae",1.14686580796228
+"43",3,"Cryomorphaceae",1.24347272848946
+"44",3,"Cyclobacteriaceae",3.37853660859917
+"45",3,"Desulfobacteraceae",1.1060263310427
+"46",3,"Desulfobulbaceae",1.482377835779
+"47",3,"Desulfocapsaceae",3.0069854472112
+"48",3,"Desulfococcaceae",1.13791628465097
+"49",3,"Desulfosarcinaceae",1.00265594805679
+"50",3,"Flavobacteriaceae",10.6167926782012
+"51",3,"Halieaceae",3.40186490387565
+"52",3,"Phycisphaeraceae",1.06322735414687
+"53",3,"Pirellulaceae",2.26521793942706
+"54",3,"Puniceicoccaceae",1.78113846000778
+"55",3,"Rare Families",25.70455819401
+"56",3,"Rhodobacteraceae",8.44647076191871
+"57",3,"Saprospiraceae",5.03277692379984
+"58",3,"Spirochaetaceae",1.4189092066958
+"59",3,"Unknown Family",1.94297384434076
+"60",3,"Woeseiaceae",3.06768828630285
+"61",4,"A4b",5.30063491605892
+"62",4,"Acanthopleuribacteraceae",1.06670090856288
+"63",4,"Assigned at Higher Taxonomy",15.9433468175803
+"64",4,"Bacteroidetes BD2-2",1.03324567291682
+"65",4,"Chromatiaceae",1.07194721891647
+"66",4,"Cryomorphaceae",1.34734624840775
+"67",4,"Cyclobacteriaceae",3.42356151344234
+"68",4,"Desulfobulbaceae",1.33517421194342
+"69",4,"Desulfocapsaceae",2.49871520546577
+"70",4,"Desulfococcaceae",1.10676965908823
+"71",4,"Flavobacteriaceae",11.3119284553113
+"72",4,"Halieaceae",3.33434190816165
+"73",4,"Phycisphaeraceae",1.3013024886083
+"74",4,"Pirellulaceae",2.51736454125888
+"75",4,"Puniceicoccaceae",1.79782595512901
+"76",4,"Rare Families",26.4460652682732
+"77",4,"Rhodobacteraceae",8.14745578329814
+"78",4,"Saprospiraceae",4.86807175804462
+"79",4,"Spirochaetaceae",1.43816147298617
+"80",4,"Unknown Family",1.99368046850095
+"81",4,"Woeseiaceae",2.71635952804489
+"82",5,"A4b",4.40105529337004
+"83",5,"Assigned at Higher Taxonomy",15.709093565078
+"84",5,"Bacteroidetes BD2-2",1.39209354829951
+"85",5,"Chromatiaceae",1.18510110374308
+"86",5,"Cryomorphaceae",1.23846278016534
+"87",5,"Cyclobacteriaceae",3.32729969267307
+"88",5,"Desulfobacteraceae",1.01322427036817
+"89",5,"Desulfobulbaceae",1.53579544454206
+"90",5,"Desulfocapsaceae",3.11915229729917
+"91",5,"Desulfococcaceae",1.17358375508478
+"92",5,"Desulfosarcinaceae",1.17136918359334
+"93",5,"Desulfovibrionaceae",1.10651533668675
+"94",5,"Flavobacteriaceae",9.94739654917994
+"95",5,"Halieaceae",3.06835342574607
+"96",5,"Phycisphaeraceae",1.01898344931708
+"97",5,"Pirellulaceae",2.16640681730138
+"98",5,"Prolixibacteraceae",1.02370975738155
+"99",5,"Puniceicoccaceae",1.77735133863351
+"100",5,"Rare Families",23.173750449338
+"101",5,"Rhodobacteraceae",8.72632748796753
+"102",5,"Saprospiraceae",5.31874950913386
+"103",5,"Sphingomonadaceae",1.11616316566843
+"104",5,"Spirochaetaceae",1.56726030451852
+"105",5,"Unknown Family",1.99958750348482
+"106",5,"Woeseiaceae",2.72321397142599
