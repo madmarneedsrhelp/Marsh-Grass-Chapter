@@ -57,7 +57,9 @@ mg23seqtab.clr <- data.frame(otu_table(mg23.ps.cleaner.clr))
 mg25seqtab.clr <- data.frame(otu_table(mg25.ps.cleaner.clr))
 ```
 
-~~~~~~~~~~~~~~~~~~~~~~~~~Marsh Grass Pt 1 (2023 stats pipeline)~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~ Marsh Grass Pt 1 (High Freq Transect ~ 2023) Stats~~~~~~~~~~~~~~~~~
+
+Beta Dispersion/Diversity!
 
 Separating out metdata from mg23ps.cleaner 
 ```{r}
@@ -107,8 +109,9 @@ mg.all.ord1 <- plot_ordination(
 
 mg.all.ord1
 ```
-ACOMB-BC2 diff abundance 
+ACOMB-BC2 diff abundance!
 *sensitivity scores low, so only looked at structural zero data 
+*results not reported in manuscript 
 ```{r}
 mg23.diff.abund.tran <- ancombc2(
   data = mg23.ps.cleaner,
@@ -137,6 +140,8 @@ View(mg23.diff.abund.tran$pseudo_sens_tab)
 #write.csv(mg23.diff.abund.tran$pseudo_sens_tab, "mg23tran_sens.csv", row.names = TRUE)
 ```
 
+*sensitivity scores low, so only looked at structural zero data 
+*results from this are reported in table 3
 ```{r}
 mg23.diff.abund.month <- ancombc2(
   data = mg23.ps.cleaner,
@@ -165,9 +170,7 @@ View(mg23.diff.abund.month$pseudo_sens_tab)
 #write.csv(mg23.diff.abund.month$pseudo_sens_tab, "mg23month_sens.csv", row.names = TRUE)
 ```
 
-
-Alpha Diversity Stats
-
+Alpha Diversity Stats!
 ~read in alpha diversity dataframes 
 
 how did we make these? 
@@ -193,10 +196,11 @@ july_df <- newdf_list$July
 december_df <- newdf_list$December
 ```
 
-2023 Samples ! Linear Mixed Effect Models (for each alpha div metric (Shan, InvSimp,Evenness, Richness) separate for each month (Dec negated due to small sampling size))
+Linear Mixed Effect Models (for each alpha div metric ~ Shan, InvSimp,Evenness, Richness) separate for each month (Dec negated due to small sampling size))
 *repeated for each alpha div metric, only included stat sig ones
 
-June Shannon Diversity Model *TOM
+June Shannon Diversity Model 
+*TOM
 ```{r}
 juneall <- lmer(Shannon ~ Transect + TOC + TOM + TN +  (1|Mat), data = june_df, REML = FALSE)
 summary(juneall)
@@ -216,7 +220,10 @@ plot_model(juneall, type = 'diag')
 
 ```
 
-July Shannon Diversity Model *Transect, TOC, TN
+July Shannon Diversity Model 
+*Transect 
+*TOC
+*TN
 ```{r}
 julyall <- lmer(Shannon ~ Transect + TOC + TOM + TN +  (1|Mat), data = july_df, REML = FALSE)
 summary(julyall)
@@ -234,7 +241,8 @@ plot_model(julyall, type = 'diag')
 #passes assumptions
 ```
 
-June Evenness Model *Transect
+June Evenness Model 
+*Transect
 ```{r}
 junealleven <- lmer(even ~ Transect + TOM  + TOC + TN + (1|Mat), data = june_df, REML = FALSE)
 summary(junealleven)
@@ -252,7 +260,10 @@ plot_model(junealleven, type = 'diag')
 #passes assumptions
 ```
 
-July Richness Model *Transect, TOC, TN 
+July Richness Model 
+*Transect
+*TOC
+*TN 
 ```{r}
 julyallrich <- lmer(Observed ~ Transect + TOM  + TOC + TN + (1|Mat), data = july_df, REML = FALSE)
 summary(julyallrich)
@@ -270,41 +281,7 @@ plot_model(julyallrich, type = 'diag')
 #passes assumptions
 ```
 
-PAM Calculations
-```{r}
-mgpamupdate <- read.csv("MGPAM_UPDATED.csv")
-```
-
-2way anova
-```{r}
-mgp_model <- aov(Y.II. ~ MatLoc * Month_Year, data = mgpamupdate)
-summary(mgp_model)
-```
-
-```{r}
-TukeyHSD(mgp_model)
-```
-*stat difference between months (Month_Year, p = 0.0199 )
-*tukey test finds that specific difference is between: (Dec_2023-July_2023, p = 0.0129673)
-
-lets check assumptions: ~ passes (residual vs fitted scatter looks ehh) but overall model is good to use
-```{r}
-#normality
-plot(mgp_model, which = 1)   # residuals vs fitted
-plot(mgp_model, which = 2)   # QQ plot
-shapiro.test(residuals(mgp_model))
-#homogeneity
-car::leveneTest(Y.II. ~ MatLoc * Month_Year, data = mgpamupdate)
-# Visual check: residuals vs fitted
-plot(fitted(mgp_model), residuals(mgp_model),
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs Fitted")
-abline(h = 0, col = "red")
-# Look for random scatter around zero
-```
-Nutrient Correlations 
-
+Nutrient Correlations!
 ```{r}
 mgpt1mdffam <- read.csv ("mgpt1mdffam.csv")
 #how this dataframe was made is specified below for bar graphs**
@@ -409,7 +386,94 @@ heatmap_topfamily2
 corr_fam uploaded to github for easy readability of sig correlations 
 
 
-~~~~~~~~~~~~~~~~~~~~~~~~Bar Plots 2023 & 2025 Transects!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~Marsh Grass Pt 2 (Low Freq Transect ~ 2025) Stats~~~~~~~~~~~~~~~~~~~
+
+Beta dipsersion & beta diversity!
+
+Separating out metadata from mg23ps.cleaner 
+```{r}
+mg25.samdf <- data.frame(mg25.ps.cleaner@sam_data)
+```
+
+beta dispersion
+*not sig between transects
+```{r}
+mg25.dist.all1 <- vegdist(mg25seqtab.clr, method = "euclidean")
+mg25.bet.all1 <- betadisper(mg25.dist.all1,mg25.samdf$Transect)
+mg25.bet.all1
+anova(mg25.bet.all1)
+```
+
+beta diversity
+*Transect not sig
+```{r}
+adonis2(mg25.dist.all1 ~ Transect, data=mg25.samdf, permutations=9999) 
+```
+
+ACOMB-BC2 diff abundance!
+*sensitivity scores low, so only looked at structural zero data 
+*results not reported in manuscript 
+```{r}
+mg25.diff.abund.tran <- ancombc2(
+  data = mg25.ps.cleaner,
+  tax_level = "Family",
+  fix_formula = "Transect",
+  p_adj_method = "holm",
+  group = "Transect",    # factor you are testing
+  struc_zero = TRUE,        # detects structural zeros (presence/absence)
+  neg_lb = TRUE,
+  em_control = list(
+    tol = 1e-5,
+    max_iter = 100,
+    sensitivity = TRUE      # runs subsampling stability check
+  ),
+  alpha = 0.05,
+  global = TRUE             # adds global tests in addition to pairwise
+)
+```
+
+```{r}
+#structural zero results (need to clean up in excel)
+View(mg25.diff.abund.tran$zero_ind)
+#write.csv(mg25.diff.abund.tran$zero_ind, "mg25tran_strzeros.csv", row.names = TRUE)
+#sensitivity results (scores are low, this is why we negate global and pairwise results and focus on the robust structural zero results above)
+View(mg25.diff.abund.tran$pseudo_sens_tab)
+#write.csv(mg25.diff.abund.tran$pseudo_sens_tab, "mg25tran_sens.csv", row.names = TRUE)
+```
+
+Alpha Diversity!
+Dataframe for alpha diversity 2025 samples was created the same way as for 2023 samples (specific info available above)
+
+~ alpha diversity dataframe ~ also has nutrient metadata (added in excel) 
+```{r}
+mg25.alpha <- read.csv("alpha.div.mgpt2.csv")
+```
+
+*Note: tried using mat as a random effect as done above, but ~ A singular fit usually means the random effect variance is essentially zero, suggesting the model cannot distinguish variation among mats from residual variation. 
+~In practical terms, Mat is probably not needed here
+~Switched to one way anovas for these analyses 
+```{r}
+july1 <- lmer(Shannon ~ Transect + (1|Mat), data = mg25.alpha, REML = FALSE)
+summary(july1)
+```
+
+One--Way ANOVA
+~ assumptions passed, but not significant 
+~ same model tested for the other alpha diversity metrics (inv simpson, richness, evenness): no sig effects found for any of these 
+```{r}
+anov1 <- aov(Shannon ~ Transect, data = mg25.alpha)
+summary(anov1)
+
+#assumptions
+mg25.alpha$Transect <- as.character(mg25.alpha$Transect)
+# Normality of residuals
+shapiro.test(residuals(anov1))
+# Homogeneity of variances
+library(car)
+leveneTest(Shannon ~ Transect, data =mg25.alpha)
+
+```
+~~~~~~~~~~~~~~~~~~~~~~~~Bar Plots 2023 Month/Transect & 2025 Transect!~~~~~~~~~~~~~~~~~~~~~~
 SET UP (for reproducibility)
 
 Need to sum groups (transect + month for 2023 samples/ just transect for 2025 samples)
@@ -576,5 +640,97 @@ plot2<- ggplot(mgp2fam_transect_grouped,
 plot2
 ```
 
-~~~~~~~~~~~~~~~~~~~~~~~~~Marsh Grass Pt 2 (2025 stats pipeline)~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~PAM Stats (both 2023 & 2025)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```{r}
+mgpamupdate <- read.csv("MGPAM_UPDATED.csv")
+```
 
+2way anova
+```{r}
+mgp_model <- aov(Y.II. ~ MatLoc * Month_Year, data = mgpamupdate)
+summary(mgp_model)
+```
+
+```{r}
+TukeyHSD(mgp_model)
+```
+*stat difference between months (Month_Year, p = 0.0199 )
+*tukey test finds that specific difference is between: (Dec_2023-July_2023, p = 0.0129673)
+
+lets check assumptions: ~ passes (residual vs fitted scatter looks ehh) but overall model is good to use
+```{r}
+#normality
+plot(mgp_model, which = 1)   # residuals vs fitted
+plot(mgp_model, which = 2)   # QQ plot
+shapiro.test(residuals(mgp_model))
+#homogeneity
+car::leveneTest(Y.II. ~ MatLoc * Month_Year, data = mgpamupdate)
+# Visual check: residuals vs fitted
+plot(fitted(mgp_model), residuals(mgp_model),
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+abline(h = 0, col = "red")
+# Look for random scatter around zero
+```
+
+~~~~Code for Final Combination Plot!
+
+shrink key first
+```{r}
+plot1 <- plot1 + theme(
+  legend.title = element_text(size = 6),
+  legend.text  = element_text(size = 6),
+  legend.key.size = unit(0.3, "cm")
+)
+
+plot2 <- plot2 + theme(
+  legend.title = element_text(size = 6),
+  legend.text  = element_text(size = 6),
+  legend.key.size = unit(0.3, "cm")
+)
+
+plot3 <- plot3 + theme(
+  legend.title = element_text(size = 6),
+  legend.text  = element_text(size = 6),
+  legend.key.size = unit(0.3, "cm")
+)
+```
+
+
+```{r}
+top <- cowplot::plot_grid(
+  mg.all.ord1,
+  heatmap_topfamily2,
+  ncol = 2,
+  rel_widths = c(1, 1)
+)
+top
+```
+```{r}
+bottom <- cowplot::plot_grid(
+  plot3,
+  plot1,
+  plot2,
+  ncol = 3,
+  rel_widths = c(1, 1, 1)
+)
+
+bottom
+```
+
+```{r}
+#FINALFINALCOMBOPLOT!!!!!!!!!!
+fin <- cowplot::plot_grid(top,bottom, ncol = 1, rel_widths    = c(1.2, 1.2))
+fin
+```
+dowload this and then clean up using adobe/pdf :) ~ all done!
+```{r}
+ggsave(
+  filename = "fin2.pdf",  # file name and format
+  plot = fin,              # the plot object
+  width = 15,                           # width in inches
+  height = 10,                           # height in inches
+  dpi = 300                             # resolution
+)
+```
