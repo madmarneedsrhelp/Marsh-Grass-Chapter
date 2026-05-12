@@ -1,0 +1,580 @@
+---
+title: "MG_Github"
+output: html_document
+date: "2026-05-11"
+---
+
+loading libraries
+```{r}
+library(stringr)
+library(dplyr)
+library(stats)
+library(ggplot2)
+library(ggpubr)
+library(vegan)
+library(cowplot)
+library(tidyverse)
+library(phyloseq)
+library(microbiome)
+library("funfuns")
+library(pairwiseAdonis)
+library(viridis)
+library("microViz")
+library(ggplot2)
+library(cowplot)
+library(phyloseq)
+library(car)
+library(ggpubr)
+library(vegan) #vegan 2.6-4
+library(dada2)
+library(RColorBrewer)
+library(dplyr)
+library(tidyverse)
+```
+
+```{r}
+getwd()
+```
+
+read in clean phyloseq object & seqtab object from dada2pipeline 
+
+uploading 2023/2025 ps.cleaner data
+```{r}
+mg23.ps.cleaner <- readRDS("mgpt1.ps.cleaner .rds")
+mg25.ps.cleaner <- readRDS("mgpt2.ps.cleaner.rds")
+```
+
+```{r}
+sample_sums(mg23.ps.cleaner)[1:10]
+sample_sums(mg25.ps.cleaner)[1:10]
+```
+applying a CLR (Centered Log-Ratio) transformation 
+making a sequence table 
+```{r}
+mg23.ps.cleaner.clr <- microbiome::transform(mg23.ps.cleaner,'clr')
+mg25.ps.cleaner.clr <- microbiome::transform(mg25.ps.cleaner,'clr')
+mg23seqtab.clr <- data.frame(otu_table(mg23.ps.cleaner.clr))
+mg25seqtab.clr <- data.frame(otu_table(mg25.ps.cleaner.clr))
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~Marsh Grass Pt 1 (2023 stats pipeline)~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Separating out metdata from mg23ps.cleaner 
+```{r}
+mg23.samdf <- data.frame(mg23.ps.cleaner@sam_data)
+```
+
+beta dispersion
+*sig between months
+*not sig between transects
+```{r}
+mg23.dist.all1 <- vegdist(mg23seqtab.clr, method = "euclidean")
+mg23.bet.all1 <- betadisper(mg23.dist.all1,mg23.samdf$Month)
+mg23.bet.all1
+anova(mg23.bet.all1)
+
+
+mg23.bet.all2 <- betadisper(mg23.dist.all1,mg23.samdf$Transect)
+mg23.bet.all2
+anova(mg23.bet.all2)
+```
+Beta diversity & Comp Comp Stats/Figures: 
+*Month sig
+*Transect not sig
+```{r}
+adonis2(mg23.dist.all1 ~ Month, data=mg23.samdf, permutations=9999) 
+adonis2(mg23.dist.all1 ~ Transect, data=mg23.samdf, permutations=9999) 
+```
+
+Figure 1A: Plot to visualize month differences in 2023 samples 
+```{r}
+mg.all.ord1 <- plot_ordination(
+  mg23.ps.cleaner.clr,
+  ordinate(mg23.ps.cleaner.clr, "PCoA", "euclidean"),
+  color = "Month"
+) +
+  stat_ellipse(linewidth = .5) +
+  geom_point(size = 1, alpha = 0.8) +
+  theme_classic(base_size = 22) +
+  theme(
+    axis.text.x = element_text(size = 2),
+    axis.text.y = element_text(size = 2)
+  ) +
+  scale_color_manual(
+    name = "Month",
+    values = c("palegreen4","palevioletred2","slateblue3")
+  )
+
+mg.all.ord1
+```
+ACOMB-BC2 diff abundance 
+*sensitivity scores low, so only looked at structural zero data 
+```{r}
+mg23.diff.abund.tran <- ancombc2(
+  data = mg23.ps.cleaner,
+  tax_level = "Family",
+  fix_formula = "Transect",
+  p_adj_method = "holm",
+  group = "Transect",    # factor you are testing
+  struc_zero = TRUE,        # detects structural zeros (presence/absence)
+  neg_lb = TRUE,
+  em_control = list(
+    tol = 1e-5,
+    max_iter = 100,
+    sensitivity = TRUE      # runs subsampling stability check
+  ),
+  alpha = 0.05,
+  global = TRUE             # adds global tests in addition to pairwise
+)
+```
+
+```{r}
+#structural zero results (need to clean up in excel)
+View(mg23.diff.abund.tran$zero_ind)
+#write.csv(mg23.diff.abund.tran$zero_ind, "mg23tran_strzeros.csv", row.names = TRUE)
+#sensitivity results (scores are low, this is why we negate global and pairwise results and focus on the robust structural zero results above)
+View(mg23.diff.abund.tran$pseudo_sens_tab)
+#write.csv(mg23.diff.abund.tran$pseudo_sens_tab, "mg23tran_sens.csv", row.names = TRUE)
+```
+
+```{r}
+mg23.diff.abund.month <- ancombc2(
+  data = mg23.ps.cleaner,
+  tax_level = "Family",
+  fix_formula = "Month",
+  p_adj_method = "holm",
+  group = "Month",    # factor you are testing
+  struc_zero = TRUE,        # detects structural zeros (presence/absence)
+  neg_lb = TRUE,
+  em_control = list(
+    tol = 1e-5,
+    max_iter = 100,
+    sensitivity = TRUE      # runs subsampling stability check
+  ),
+  alpha = 0.05,
+  global = TRUE             # adds global tests in addition to pairwise
+)
+```
+
+```{r}
+#structural zero results (need to clean up in excel)
+View(mg23.diff.abund.month$zero_ind)
+#write.csv(mg23.diff.abund.month$zero_ind, "mg23month_strzeros.csv", row.names = TRUE)
+#sensitivity results (scores are low, this is why we negate global and pairwise results and focus on the robust structural zero results above)
+View(mg23.diff.abund.month$pseudo_sens_tab)
+#write.csv(mg23.diff.abund.month$pseudo_sens_tab, "mg23month_sens.csv", row.names = TRUE)
+```
+
+
+Alpha Diversity Stats
+
+~read in alpha diversity dataframes 
+
+how did we make these? 
+alpha_diversity<- data.frame(estimate_richness(ps.cleaner, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
+alpha_diversity$Evenness <- alpha_diversity$Shannon / log(alpha_diversity$Observed)
+^did this for each experiment and saved dataframes to be uploaded below 
+ps.cleaner phyloseq object should not have transformed data (should use raw or minimally processed data for this)
+*if included below then the model passes assumptions + significant results 
+
+
+~ alpha diversity dataframe ~ also has nutrient metadata (added in excel) 
+```{r}
+mg23.alpha <- read.csv("mg_diversity_df copy 2.csv")
+```
+
+splitting dataframe by month:
+```{r}
+newdf_list <- split(mg23.alpha, mg23.alpha$Month)
+
+# Access each subset dataframe by its corresponding month value
+june_df <- newdf_list$June
+july_df <- newdf_list$July
+december_df <- newdf_list$December
+```
+
+2023 Samples ! Linear Mixed Effect Models (for each alpha div metric (Shan, InvSimp,Evenness, Richness) separate for each month (Dec negated due to small sampling size))
+*repeated for each alpha div metric, only included stat sig ones
+
+June Shannon Diversity Model *TOM
+```{r}
+juneall <- lmer(Shannon ~ Transect + TOC + TOM + TN +  (1|Mat), data = june_df, REML = FALSE)
+summary(juneall)
+
+# Plot residuals against fitted values
+plot(residuals(juneall) ~ fitted(juneall))
+
+# Shapiro-Wilk normality test
+shapiro.test(residuals(juneall))
+
+# Q-Q plot of residuals
+qqnorm(residuals(juneall))
+qqline(residuals(juneall))
+plot_model(juneall, type = 'diag')
+#passes assumptions
+
+
+```
+
+July Shannon Diversity Model *Transect, TOC, TN
+```{r}
+julyall <- lmer(Shannon ~ Transect + TOC + TOM + TN +  (1|Mat), data = july_df, REML = FALSE)
+summary(julyall)
+
+# Plot residuals against fitted values
+plot(residuals(julyall) ~ fitted(julyall))
+
+# Shapiro-Wilk normality test
+shapiro.test(residuals(julyall))
+
+# Q-Q plot of residuals
+qqnorm(residuals(julyall))
+qqline(residuals(julyall))
+plot_model(julyall, type = 'diag')
+#passes assumptions
+```
+
+June Evenness Model *Transect
+```{r}
+junealleven <- lmer(even ~ Transect + TOM  + TOC + TN + (1|Mat), data = june_df, REML = FALSE)
+summary(junealleven)
+
+# Plot residuals against fitted values
+plot(residuals(junealleven) ~ fitted(junealleven))
+
+# Shapiro-Wilk normality test
+shapiro.test(residuals(junealleven))
+
+# Q-Q plot of residuals
+qqnorm(residuals(junealleven))
+qqline(residuals(junealleven))
+plot_model(junealleven, type = 'diag')
+#passes assumptions
+```
+
+July Richness Model *Transect, TOC, TN 
+```{r}
+julyallrich <- lmer(Observed ~ Transect + TOM  + TOC + TN + (1|Mat), data = july_df, REML = FALSE)
+summary(julyallrich)
+
+# Plot residuals against fitted values
+plot(residuals(julyallrich) ~ fitted(julyallrich))
+
+# Shapiro-Wilk normality test
+shapiro.test(residuals(julyallrich))
+
+# Q-Q plot of residuals
+qqnorm(residuals(julyallrich))
+qqline(residuals(julyallrich))
+plot_model(julyallrich, type = 'diag')
+#passes assumptions
+```
+
+PAM Calculations
+```{r}
+mgpamupdate <- read.csv("MGPAM_UPDATED.csv")
+```
+
+2way anova
+```{r}
+mgp_model <- aov(Y.II. ~ MatLoc * Month_Year, data = mgpamupdate)
+summary(mgp_model)
+```
+
+```{r}
+TukeyHSD(mgp_model)
+```
+*stat difference between months (Month_Year, p = 0.0199 )
+*tukey test finds that specific difference is between: (Dec_2023-July_2023, p = 0.0129673)
+
+lets check assumptions: ~ passes (residual vs fitted scatter looks ehh) but overall model is good to use
+```{r}
+#normality
+plot(mgp_model, which = 1)   # residuals vs fitted
+plot(mgp_model, which = 2)   # QQ plot
+shapiro.test(residuals(mgp_model))
+#homogeneity
+car::leveneTest(Y.II. ~ MatLoc * Month_Year, data = mgpamupdate)
+# Visual check: residuals vs fitted
+plot(fitted(mgp_model), residuals(mgp_model),
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+abline(h = 0, col = "red")
+# Look for random scatter around zero
+```
+Nutrient Correlations 
+
+```{r}
+mgpt1mdffam <- read.csv ("mgpt1mdffam.csv")
+#how this dataframe was made is specified below for bar graphs**
+```
+
+Looking at greater than 2% relative abundant taxa selected (unknown family negated)
+```{r}
+# Assuming mdfphy.rel is your data frame
+top_fam <- aggregate(Abundance ~ Family, data =mgpt1mdffam , FUN = sum)
+
+# Sort the result in descending order
+top_fam <- top_fam[order(-top_fam$Abundance), ]
+
+# Calculate the total abundance
+total_abundance <- sum(top_fam$Abundance)
+
+# Calculate the percentage for each phylum
+top_fam$Percentage <- (top_fam$Abundance / total_abundance) * 100
+
+# Display the top phyla with their percentages
+print(top_fam)
+```
+Calculating correlation coefficients based on Pearson
+```{r}
+# Load libraries
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+#mg23.alpha
+#mgpt1mdffam
+
+# Merge dataframes 
+merged.mgpt1 <- merge(mg23.alpha, mgpt1mdffam, by = "Sample")
+
+#Define top families (this is taxa w > 2% relative abundance) ---
+specific_family <- c("A4b", "Cyclobacteriaceae", "Desulfocapsaceae",
+                     "Flavobacteriaceae","Halieaceae","Rhodobacteraceae",
+                     "Saprospiraceae","Woeseiaceae", "Pirellulaceae")
+
+# Filter for top families & remove NAs 
+merged_clean <- merged.mgpt1 %>%
+  filter(Family %in% specific_family) %>%
+  drop_na(Abundance, TOC, TOM, TN)
+
+#  Pivot nutrients to long format 
+corr_df_long <- merged_clean %>%
+  pivot_longer(
+    cols = c(TOC, TOM, TN),
+    names_to = "Variable",
+    values_to = "Nutrient"
+  )
+
+# Calculate correlations + p-values per family × nutrient
+corr_family <- corr_df_long %>%
+  group_by(Family, Variable) %>%
+  summarize(
+    Correlation_Coefficient = ifelse(
+      length(unique(Nutrient)) > 1,
+      cor.test(Abundance, Nutrient, method = "pearson")$estimate,
+      NA
+    ),
+    
+    P_value = ifelse(
+      length(unique(Nutrient)) > 1,
+      cor.test(Abundance, Nutrient, method = "pearson")$p.value,
+      NA
+    ),
+    
+    .groups = "drop"
+  )
+```
+
+Figure 1B
+```{r}
+heatmap_topfamily2 <- ggplot(corr_family, aes(x = Variable, y = Family, fill = Correlation_Coefficient)) +
+  geom_tile(color = "white") +
+  scale_fill_gradientn(
+    colours = c(
+      "#7FC8A3",
+      "#BFE6D3",
+      "#D5DFF0",
+      "#7A9CC6"
+    ),
+    name = "Pearson's Correlation"
+  ) +
+  scale_y_discrete(position = "right") +  # ✅ move y-axis to the right
+  labs(x = "Nutrients", y = "Top Families") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
+    legend.position = "right"
+  )
+
+heatmap_topfamily2
+```
+~sig stars added later~
+corr_fam uploaded to github for easy readability of sig correlations 
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~Bar Plots 2023 & 2025 Transects!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SET UP (for reproducibility)
+
+Need to sum groups (transect + month for 2023 samples/ just transect for 2025 samples)
+```{r}
+library(microshades)
+mg23.ps.cleaner.rel <- transform_sample_counts(mg23.ps.cleaner, function(x) x / sum(x))
+fam.aggreg1 <- tax_glom(mg23.ps.cleaner.rel, "Family")
+mgpt1mdffam<- prep_mdf(fam.aggreg1, subgroup_level = "Family")
+```
+
+2023 Transect example below: 
+*repeated for month for 2023 samples
+*completed for transect for 2025 samples
+```{r}
+library(dplyr)
+mgpt1fam_transect <- mgpt1mdffam %>%
+  group_by(Transect, Family) %>%
+  summarise(Abundance = sum(Abundance), .groups = "drop")
+
+#convert to relative abundance within each transect
+mgpt1fam_transect <- mgpt1fam_transect %>%
+  group_by(Transect) %>%
+  mutate(Percentage = (Abundance / sum(Abundance)) * 100)
+
+#grouping rules (same as above) applied
+#families less than 1% relatively abundant grouped in "rare families" category 
+#families only assigned at higher taxonomic rankings (phyla, class, order, ect) grouped into "Assigned at Higher Taxonomy" category
+#note: some families were "unknown" meaning silva database was unable to find a match, so there should also be an "unknown" category unless all samples had identification to the family level
+
+mgpt1fam_transect$Family_grouped <- ifelse(
+  grepl("_", mgpt1fam_transect$Family),
+  "Assigned at Higher Taxonomy",
+  ifelse(mgpt1fam_transect$Percentage < 1, "Rare Families", mgpt1fam_transect$Family)
+)
+
+#re-sum after grouping (bc grouped categories are now collapsed)
+mgpt1fam_transect_grouped <- mgpt1fam_transect %>%
+  group_by(Transect, Family_grouped) %>%
+  summarise(Percentage = sum(Percentage), .groups = "drop")
+
+#consistent stacking order based on overall abundance!
+family_order <- mgpt1fam_transect_grouped %>%
+  group_by(Family_grouped) %>%
+  summarise(Total = sum(Percentage)) %>%
+  arrange(Total) %>%
+  pull(Family_grouped)
+
+mgpt1fam_transect_grouped$Family_grouped <- factor(
+  mgpt1fam_transect_grouped$Family_grouped,
+  levels = family_order
+)
+```
+
+Set up above (^) yields the following dataframes below (v) ~ dataframes below have been cleaned up and uploaded to github for faster reproduction)
+
+read in the dataframes
+```{r}
+mgpt1fam_transect_grouped<- read.csv("mgpt1fam_transect_grouped.csv")
+mgpt1fam_month_grouped<- read.csv("mgpt1fam_month_grouped.csv")
+mgp2fam_transect_grouped<- read.csv("mgpt2fam_transect_grouped.csv")
+
+mgpt1fam_transect_grouped <- mgpt1fam_transect_grouped[, !names(mgpt1fam_transect_grouped) %in% "X"]
+mgpt1fam_month_grouped    <- mgpt1fam_month_grouped[, !names(mgpt1fam_month_grouped) %in% "X"]
+mgp2fam_transect_grouped  <- mgp2fam_transect_grouped[, !names(mgp2fam_transect_grouped) %in% "X"]
+
+View(mgpt1fam_transect_grouped)
+View(mgpt1fam_month_grouped)
+View(mgp2fam_transect_grouped)
+```
+
+Scaling colors for visual comparisons 
+(all the colors on the same scale) 
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(RColorBrewer)
+
+# Clean/standardize names
+mgpt1fam_transect_grouped$Family_grouped <- trimws(as.character(mgpt1fam_transect_grouped$Family_grouped))
+mgp2fam_transect_grouped$Family_grouped  <- trimws(as.character(mgp2fam_transect_grouped$Family_grouped))
+mgpt1fam_month_grouped$Family_grouped    <- trimws(as.character(mgpt1fam_month_grouped$Family_grouped))
+
+
+#all families 
+all_families <- unique(c(
+  mgpt1fam_transect_grouped$Family_grouped,
+  mgp2fam_transect_grouped$Family_grouped,
+  mgpt1fam_month_grouped$Family_grouped
+))
+
+# color palette *want contrast*
+my_colors <- colorRampPalette(
+  brewer.pal(12, "Paired")
+)(length(all_families))
+
+my_colors <- setNames(my_colors, all_families)
+
+# color specific categories
+my_colors[names(my_colors) %in% "Assigned at Higher Taxonomy"] <- "darkblue"
+my_colors[names(my_colors) %in% "Rare Families"]              <- "grey80"
+my_colors[names(my_colors) %in% "Unknown Family"]             <- "grey0"
+
+
+# Set factor levels (for consistency)
+mgpt1fam_transect_grouped$Family_grouped <- factor(
+  mgpt1fam_transect_grouped$Family_grouped,
+  levels = names(my_colors)
+)
+
+mgp2fam_transect_grouped$Family_grouped <- factor(
+  mgp2fam_transect_grouped$Family_grouped,
+  levels = names(my_colors)
+)
+
+mgpt1fam_month_grouped$Family_grouped <- factor(
+  mgpt1fam_month_grouped$Family_grouped,
+  levels = names(my_colors)
+)
+```
+
+Figure 1C ~ 2023 month stacked bar family plot
+```{r}
+#cleaning and ordering Monthc column
+mgpt1fam_month_grouped$Month <- trimws(mgpt1fam_month_grouped$Month)
+unique(mgpt1fam_month_grouped$Month)
+mgpt1fam_month_grouped$Month <- factor(
+  mgpt1fam_month_grouped$Month,
+  levels = c( "June", "July", "December")
+)
+
+#plotting 2023 month
+plot3 <- ggplot(mgpt1fam_month_grouped,
+       aes(x = Month, y = Percentage, fill = Family_grouped)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Month", y = "Relative Abundance (%)", fill = "Family") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = my_colors)
+
+plot3
+```
+
+Figure 1D
+```{r}
+# Plot mgpt1 transect
+plot1<- ggplot(mgpt1fam_transect_grouped,
+       aes(x = Transect, y = Percentage, fill = Family_grouped)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Transect", y = "Relative Abundance (%)", fill = "Family") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = my_colors)
+plot1
+
+# Plot mgpt2 transect
+plot2<- ggplot(mgp2fam_transect_grouped,
+       aes(x = Transect, y = Percentage, fill = Family_grouped)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Transect", y = "Relative Abundance (%)", fill = "Family") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = my_colors)
+plot2
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~Marsh Grass Pt 2 (2025 stats pipeline)~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
