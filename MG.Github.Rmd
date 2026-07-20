@@ -84,6 +84,8 @@ Beta diversity & Comp Comp Stats/Figures:
 *Month sig
 *Transect not sig
 ```{r}
+mg23.samdf$Month <- as.factor(mg23.samdf$Month)
+mg23.samdf$Transect <- as.factor(mg23.samdf$Transect)
 adonis2(mg23.dist.all1 ~ Month, data=mg23.samdf, permutations=9999) 
 adonis2(mg23.dist.all1 ~ Transect, data=mg23.samdf, permutations=9999) 
 ```
@@ -104,7 +106,7 @@ mg.all.ord1 <- plot_ordination(
   ) +
   scale_color_manual(
     name = "Month",
-    values = c("palegreen4","palevioletred2","slateblue3")
+    values = c("red3","green3","slateblue3")
   )
 
 mg.all.ord1
@@ -202,8 +204,13 @@ Linear Mixed Effect Models (for each alpha div metric ~ Shan, InvSimp,Evenness, 
 June Shannon Diversity Model 
 *TOM
 ```{r}
-juneall <- lmer(Shannon ~ Transect + TOC + TOM + TN +  (1|Mat), data = june_df, REML = FALSE)
+library(lmerTest)
+
+juneall <- lmer(Shannon ~ Transect + TOC + TOM + TN + (1|Mat),
+                data = june_df, REML = FALSE)
+
 summary(juneall)
+
 
 # Plot residuals against fitted values
 plot(residuals(juneall) ~ fitted(juneall))
@@ -386,7 +393,7 @@ heatmap_topfamily2
 corr_fam uploaded to github for easy readability of sig correlations 
 
 
-~~~~~~~~~~~~~~~~~~~~~~~~~Marsh Grass Pt 2 (Low Freq Transect ~ 2025) Stats~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~Marsh Grass Pt 2 (Low Freq Transect ~ 2025) Stats~~~~~~~~~~~~~~~~~~~
 
 Beta dipsersion & beta diversity!
 
@@ -407,6 +414,7 @@ anova(mg25.bet.all1)
 beta diversity
 *Transect not sig
 ```{r}
+mg25.samdf$Transect <- as.factor(mg25.samdf$Transect)
 adonis2(mg25.dist.all1 ~ Transect, data=mg25.samdf, permutations=9999) 
 ```
 
@@ -527,21 +535,77 @@ mgpt1fam_transect_grouped$Family_grouped <- factor(
 )
 ```
 
+
+new dataframe ~ just july 2023 samples ~ looking at the transect families in just this month! 
+
+```{r}
+#separating july for transect comparison image
+mgpt1mdffamjuly <- mgpt1mdffam %>%
+  filter(!Month %in% c("June ", "December"))
+```
+
+```{r}
+library(dplyr)
+julymgpt1fam_transect <- mgpt1mdffamjuly %>%
+  group_by(Transect, Family) %>%
+  summarise(Abundance = sum(Abundance), .groups = "drop")
+
+#convert to relative abundance within each transect
+julymgpt1fam_transect <- julymgpt1fam_transect %>%
+  group_by(Transect) %>%
+  mutate(Percentage = (Abundance / sum(Abundance)) * 100)
+
+#grouping rules (same as above) applied
+#families less than 1% relatively abundant grouped in "rare families" category 
+#families only assigned at higher taxonomic rankings (phyla, class, order, ect) grouped into "Assigned at Higher Taxonomy" category
+#note: some families were "unknown" meaning silva database was unable to find a match, so there should also be an "unknown" category unless all samples had identification to the family level
+
+julymgpt1fam_transect$Family_grouped <- ifelse(
+  grepl("_", julymgpt1fam_transect$Family),
+  "Assigned at Higher Taxonomy",
+  ifelse(julymgpt1fam_transect$Percentage < 1, "Rare Families", julymgpt1fam_transect$Family)
+)
+
+#re-sum after grouping (bc grouped categories are now collapsed)
+julymgpt1fam_transect_grouped <- julymgpt1fam_transect %>%
+  group_by(Transect, Family_grouped) %>%
+  summarise(Percentage = sum(Percentage), .groups = "drop")
+
+#consistent stacking order based on overall abundance!
+family_order <- julymgpt1fam_transect_grouped %>%
+  group_by(Family_grouped) %>%
+  summarise(Total = sum(Percentage)) %>%
+  arrange(Total) %>%
+  pull(Family_grouped)
+
+julymgpt1fam_transect_grouped$Family_grouped <- factor(
+  julymgpt1fam_transect_grouped$Family_grouped,
+  levels = family_order
+)
+#write.csv(julymgpt1fam_transect_grouped, "julymgpt1fam_transect_grouped.csv", row.names = FALSE)
+
+```
+
+
 Set up above (^) yields the following dataframes below (v) ~ dataframes below have been cleaned up and uploaded to github for faster reproduction)
+
 
 read in the dataframes
 ```{r}
 mgpt1fam_transect_grouped<- read.csv("mgpt1fam_transect_grouped.csv")
 mgpt1fam_month_grouped<- read.csv("mgpt1fam_month_grouped.csv")
+julymgpt1fam_transect_grouped <- read.csv ("julymgpt1fam_transect_grouped.csv")
 mgp2fam_transect_grouped<- read.csv("mgpt2fam_transect_grouped.csv")
 
 mgpt1fam_transect_grouped <- mgpt1fam_transect_grouped[, !names(mgpt1fam_transect_grouped) %in% "X"]
 mgpt1fam_month_grouped    <- mgpt1fam_month_grouped[, !names(mgpt1fam_month_grouped) %in% "X"]
+julymgpt1fam_transect_grouped <- julymgpt1fam_transect_grouped[, !names(julymgpt1fam_transect_grouped) %in% "X"]
 mgp2fam_transect_grouped  <- mgp2fam_transect_grouped[, !names(mgp2fam_transect_grouped) %in% "X"]
 
 View(mgpt1fam_transect_grouped)
 View(mgpt1fam_month_grouped)
 View(mgp2fam_transect_grouped)
+View(julymgpt1fam_transect_grouped)
 ```
 
 Scaling colors for visual comparisons 
@@ -556,13 +620,15 @@ library(RColorBrewer)
 mgpt1fam_transect_grouped$Family_grouped <- trimws(as.character(mgpt1fam_transect_grouped$Family_grouped))
 mgp2fam_transect_grouped$Family_grouped  <- trimws(as.character(mgp2fam_transect_grouped$Family_grouped))
 mgpt1fam_month_grouped$Family_grouped    <- trimws(as.character(mgpt1fam_month_grouped$Family_grouped))
+julymgpt1fam_transect_grouped$Family_grouped    <- trimws(as.character(julymgpt1fam_transect_grouped$Family_grouped))
 
 
 #all families 
 all_families <- unique(c(
   mgpt1fam_transect_grouped$Family_grouped,
   mgp2fam_transect_grouped$Family_grouped,
-  mgpt1fam_month_grouped$Family_grouped
+  mgpt1fam_month_grouped$Family_grouped,
+  julymgpt1fam_transect_grouped$Family_grouped
 ))
 
 # color palette *want contrast*
@@ -593,6 +659,10 @@ mgpt1fam_month_grouped$Family_grouped <- factor(
   mgpt1fam_month_grouped$Family_grouped,
   levels = names(my_colors)
 )
+julymgpt1fam_transect_grouped$Family_grouped <- factor(
+  julymgpt1fam_transect_grouped$Family_grouped,
+  levels = names(my_colors)
+)
 ```
 
 Figure 1C ~ 2023 month stacked bar family plot
@@ -617,10 +687,10 @@ plot3 <- ggplot(mgpt1fam_month_grouped,
 plot3
 ```
 
-Figure 1D
+Figure 1D (comparing july 2023 and july 2025)
 ```{r}
 # Plot mgpt1 transect
-plot1<- ggplot(mgpt1fam_transect_grouped,
+plot1<- ggplot(julymgpt1fam_transect_grouped,
        aes(x = Transect, y = Percentage, fill = Family_grouped)) +
   geom_bar(stat = "identity") +
   labs(x = "Transect", y = "Relative Abundance (%)", fill = "Family") +
@@ -628,7 +698,6 @@ plot1<- ggplot(mgpt1fam_transect_grouped,
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_manual(values = my_colors)
 plot1
-
 # Plot mgpt2 transect
 plot2<- ggplot(mgp2fam_transect_grouped,
        aes(x = Transect, y = Percentage, fill = Family_grouped)) +
@@ -638,6 +707,170 @@ plot2<- ggplot(mgp2fam_transect_grouped,
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_manual(values = my_colors)
 plot2
+```
+
+
+combining both plots and putting key in alphabetical order! 
+
+```{r}
+library(cowplot)
+library(ggplot2)
+
+# Alphabetical order of families
+family_order <- sort(names(my_colors))
+
+# Apply alphabetical factor order to both datasets
+julymgpt1fam_transect_grouped$Family_grouped <- factor(
+  julymgpt1fam_transect_grouped$Family_grouped,
+  levels = family_order
+)
+
+mgp2fam_transect_grouped$Family_grouped <- factor(
+  mgp2fam_transect_grouped$Family_grouped,
+  levels = family_order
+)
+
+# -----------------------------
+# Create dummy plot for legend
+# -----------------------------
+
+legend_plot <- ggplot(
+  legend_df,
+  aes(x = Transect, y = Percentage, fill = Family_grouped)
+) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order
+  ) +
+  theme_bw() +
+  theme(
+    legend.text = element_text(size = 8),      # family names
+    legend.title = element_text(size = 9),    # "Family"
+    legend.key.size = unit(0.4, "cm"),         # colored boxes
+    legend.spacing.y = unit(0.1, "cm")         # spacing between items
+  )
+
+
+
+# Extract alphabetical legend
+legend <- get_legend(legend_plot)
+
+
+# -----------------------------
+# July 2023 plot
+# -----------------------------
+
+plot1 <- ggplot(
+  julymgpt1fam_transect_grouped,
+  aes(x = Transect, y = Percentage, fill = Family_grouped)
+) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Transect",
+    y = "Relative Abundance (%)",
+    fill = "Family"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order
+  )
+
+
+# -----------------------------
+# July 2025 plot
+# -----------------------------
+
+plot2 <- ggplot(
+  mgp2fam_transect_grouped,
+  aes(x = Transect, y = Percentage, fill = Family_grouped)
+) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Transect",
+    y = "Relative Abundance (%)",
+    fill = "Family"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order
+  )
+
+
+
+
+# -----------------------------
+# Combine plots + legend
+# -----------------------------
+
+combined.2d <- cowplot::plot_grid(
+  plot1,
+  plot2,
+  legend,
+  ncol = 3,
+  rel_widths = c(1, 1, .5)
+)
+
+combined.2d
+```
+redoing month plot to match!
+```{r}
+# -----------------------------
+# Figure 1C: 2023 month stacked bar family plot
+# -----------------------------
+
+# Clean Month column
+mgpt1fam_month_grouped$Month <- trimws(mgpt1fam_month_grouped$Month)
+
+# Set month order
+mgpt1fam_month_grouped$Month <- factor(
+  mgpt1fam_month_grouped$Month,
+  levels = c("June", "July", "December")
+)
+
+# Set family order alphabetically
+family_order <- sort(names(my_colors))
+
+mgpt1fam_month_grouped$Family_grouped <- factor(
+  mgpt1fam_month_grouped$Family_grouped,
+  levels = family_order
+)
+
+# Create plot
+plot3 <- ggplot(
+  mgpt1fam_month_grouped,
+  aes(x = Month, y = Percentage, fill = Family_grouped)
+) +
+  geom_bar(stat = "identity") +
+  labs(
+    x = "Month",
+    y = "Relative Abundance (%)",
+    fill = "Family"
+  ) +
+  theme_bw() +
+  theme(
+    legend.text = element_text(size = 8),      # family names
+    legend.title = element_text(size = 9),    # "Family"
+    legend.key.size = unit(0.4, "cm"),         # colored boxes
+    legend.spacing.y = unit(0.1, "cm"),        # spacing between items
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order
+  )
+
+plot3
 ```
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~PAM Stats (both 2023 & 2025)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -676,52 +909,23 @@ abline(h = 0, col = "red")
 
 ~~~~Code for Final Combination Plot!
 
-shrink key first
-```{r}
-plot1 <- plot1 + theme(
-  legend.title = element_text(size = 6),
-  legend.text  = element_text(size = 6),
-  legend.key.size = unit(0.3, "cm")
-)
 
-plot2 <- plot2 + theme(
-  legend.title = element_text(size = 6),
-  legend.text  = element_text(size = 6),
-  legend.key.size = unit(0.3, "cm")
-)
-
-plot3 <- plot3 + theme(
-  legend.title = element_text(size = 6),
-  legend.text  = element_text(size = 6),
-  legend.key.size = unit(0.3, "cm")
-)
-```
-
+mg.all.ord1 ~ not using! heatmap_topfamily2,
 
 ```{r}
 top <- cowplot::plot_grid(
   mg.all.ord1,
-  heatmap_topfamily2,
+  plot3,
   ncol = 2,
-  rel_widths = c(1, 1)
+  rel_widths = c(1.5, 1)
 )
 top
 ```
-```{r}
-bottom <- cowplot::plot_grid(
-  plot3,
-  plot1,
-  plot2,
-  ncol = 3,
-  rel_widths = c(1, 1, 1)
-)
 
-bottom
-```
 
 ```{r}
 #FINALFINALCOMBOPLOT!!!!!!!!!!
-fin <- cowplot::plot_grid(top,bottom, ncol = 1, rel_widths    = c(1.2, 1.2))
+fin <- cowplot::plot_grid(top,combined.2d, ncol = 1, rel_widths    = c(1, 1))
 fin
 ```
 dowload this and then clean up using adobe/pdf :) ~ all done!
@@ -729,8 +933,8 @@ dowload this and then clean up using adobe/pdf :) ~ all done!
 ggsave(
   filename = "fin2.pdf",  # file name and format
   plot = fin,              # the plot object
-  width = 15,                           # width in inches
-  height = 10,                           # height in inches
+  width = 17,                           # width in inches
+  height = 12,                           # height in inches
   dpi = 300                             # resolution
 )
 ```
