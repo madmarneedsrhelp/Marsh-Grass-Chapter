@@ -106,9 +106,10 @@ mg.all.ord1 <- plot_ordination(
   ) +
   scale_color_manual(
     name = "Month",
-    values = c("red3","green3","slateblue3")
+    values = c("slateblue2",  "#7FC8A3","#7A9CC9")
   )
 
+ 
 mg.all.ord1
 ```
 ACOMB-BC2 diff abundance!
@@ -364,31 +365,55 @@ corr_family <- corr_df_long %>%
 
 Figure 1B
 ```{r}
-heatmap_topfamily2 <- ggplot(corr_family, aes(x = Variable, y = Family, fill = Correlation_Coefficient)) +
+heatmap_topfamily2 <- ggplot(
+  corr_family,
+  aes(
+    x = Variable,
+    y = Family,
+    fill = Correlation_Coefficient
+  )
+) +
   geom_tile(color = "white") +
-  scale_fill_gradientn(
-    colours = c(
-      "#7FC8A3",
-      "#BFE6D3",
-      "#D5DFF0",
-      "#7A9CC6"
-    ),
+  
+  scale_fill_gradient2(
+    low = "#3385BB",        # blue = negative correlation
+    mid = "#F2F2F2",        # light neutral = zero
+    high = "#49AB3C",       # green = positive correlation
+    midpoint = 0,
     name = "Pearson's Correlation"
   ) +
-  scale_y_discrete(position = "right") +  # ✅ move y-axis to the right
-  labs(x = "Nutrients", y = "Top Families") +
+  
+  scale_y_discrete(position = "right") +
+  
+  labs(
+    x = "Nutrients",
+    y = "Top Families"
+  ) +
+  
   theme_minimal() +
+  
   theme(
     axis.text.x = element_text(size = 12),
     axis.text.y = element_text(size = 12),
     axis.title.x = element_text(size = 14),
     axis.title.y = element_text(size = 14),
-    panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
+    
+    # Remove gridlines
+    panel.grid = element_blank(),
+    
+    # Keep black box around heatmap
+    panel.border = element_rect(
+      color = "black",
+      fill = NA,
+      linewidth = 1
+    ),
+    
     legend.position = "right"
   )
 
 heatmap_topfamily2
 ```
+
 ~sig stars added later~
 corr_fam uploaded to github for easy readability of sig correlations 
 
@@ -461,6 +486,7 @@ mg25.alpha <- read.csv("alpha.div.mgpt2.csv")
 ~In practical terms, Mat is probably not needed here
 ~Switched to one way anovas for these analyses 
 ```{r}
+library(lme4)
 july1 <- lmer(Shannon ~ Transect + (1|Mat), data = mg25.alpha, REML = FALSE)
 summary(july1)
 ```
@@ -713,13 +739,20 @@ plot2
 combining both plots and putting key in alphabetical order! 
 
 ```{r}
+
 library(cowplot)
 library(ggplot2)
 
-# Alphabetical order of families
-family_order <- sort(names(my_colors))
+# -----------------------------
+# Alphabetical order of ALL families
+# -----------------------------
 
-# Apply alphabetical factor order to both datasets
+family_order <- sort(unique(c(
+  as.character(julymgpt1fam_transect_grouped$Family_grouped),
+  as.character(mgp2fam_transect_grouped$Family_grouped)
+)))
+
+# Make sure both datasets use the same factor levels
 julymgpt1fam_transect_grouped$Family_grouped <- factor(
   julymgpt1fam_transect_grouped$Family_grouped,
   levels = family_order
@@ -729,32 +762,6 @@ mgp2fam_transect_grouped$Family_grouped <- factor(
   mgp2fam_transect_grouped$Family_grouped,
   levels = family_order
 )
-
-# -----------------------------
-# Create dummy plot for legend
-# -----------------------------
-
-legend_plot <- ggplot(
-  legend_df,
-  aes(x = Transect, y = Percentage, fill = Family_grouped)
-) +
-  geom_bar(stat = "identity") +
-  scale_fill_manual(
-    values = my_colors,
-    breaks = family_order
-  ) +
-  theme_bw() +
-  theme(
-    legend.text = element_text(size = 8),      # family names
-    legend.title = element_text(size = 9),    # "Family"
-    legend.key.size = unit(0.4, "cm"),         # colored boxes
-    legend.spacing.y = unit(0.1, "cm")         # spacing between items
-  )
-
-
-
-# Extract alphabetical legend
-legend <- get_legend(legend_plot)
 
 
 # -----------------------------
@@ -771,14 +778,15 @@ plot1 <- ggplot(
     y = "Relative Abundance (%)",
     fill = "Family"
   ) +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order,
+    drop = FALSE
+  ) +
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
-  ) +
-  scale_fill_manual(
-    values = my_colors,
-    breaks = family_order
   )
 
 
@@ -796,17 +804,58 @@ plot2 <- ggplot(
     y = "Relative Abundance (%)",
     fill = "Family"
   ) +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order,
+    drop = FALSE
+  ) +
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
-  ) +
-  scale_fill_manual(
-    values = my_colors,
-    breaks = family_order
   )
 
 
+# -----------------------------
+# Create combined legend
+# -----------------------------
+
+legend_df <- data.frame(
+  Family_grouped = factor(
+    family_order,
+    levels = family_order
+  ),
+  Percentage = 1,
+  Transect = "Legend"
+)
+
+legend_plot <- ggplot(
+  legend_df,
+  aes(
+    x = Transect,
+    y = Percentage,
+    fill = Family_grouped
+  )
+) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order,
+    drop = FALSE
+  ) +
+  labs(fill = "Family") +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 9),
+    legend.key.size = unit(0.4, "cm"),
+    legend.spacing.y = unit(0.1, "cm")
+  )
+
+
+# Extract combined alphabetical legend
+legend <- cowplot::get_legend(legend_plot)
 
 
 # -----------------------------
@@ -818,11 +867,245 @@ combined.2d <- cowplot::plot_grid(
   plot2,
   legend,
   ncol = 3,
-  rel_widths = c(1, 1, .5)
+  rel_widths = c(1, 1, 0.5)
 )
 
 combined.2d
 ```
+
+
+
+cleaned-up combo plot
+```{r}
+library(cowplot)
+library(ggplot2)
+library(grid)
+
+# -----------------------------
+# Alphabetical order of ALL families
+# -----------------------------
+
+family_order <- sort(unique(c(
+  as.character(julymgpt1fam_transect_grouped$Family_grouped),
+  as.character(mgp2fam_transect_grouped$Family_grouped)
+)))
+
+# Make sure both datasets use the same factor levels
+julymgpt1fam_transect_grouped$Family_grouped <- factor(
+  julymgpt1fam_transect_grouped$Family_grouped,
+  levels = family_order
+)
+
+mgp2fam_transect_grouped$Family_grouped <- factor(
+  mgp2fam_transect_grouped$Family_grouped,
+  levels = family_order
+)
+
+
+# -----------------------------
+# July 2023 plot
+# -----------------------------
+
+plot1 <- ggplot(
+  julymgpt1fam_transect_grouped,
+  aes(x = Transect, y = Percentage, fill = Family_grouped)
+) +
+  geom_bar(
+    stat = "identity",
+    width = 0.6
+  ) +
+  labs(
+    x = "Transect",
+    y = "Relative Abundance (%)",
+    fill = "Family"
+  ) +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order,
+    drop = FALSE
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank()
+  )
+
+
+# -----------------------------
+# July 2025 plot
+# -----------------------------
+
+plot2 <- ggplot(
+  mgp2fam_transect_grouped,
+  aes(x = Transect, y = Percentage, fill = Family_grouped)
+) +
+  geom_bar(
+    stat = "identity",
+    width = 0.6
+  ) +
+  labs(
+    x = "Transect",
+    y = "Relative Abundance (%)",
+    fill = "Family"
+  ) +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order,
+    drop = FALSE
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank()
+  )
+
+
+# -----------------------------
+# Create compact legend
+# -----------------------------
+
+legend_df <- data.frame(
+  Family_grouped = factor(
+    family_order,
+    levels = family_order
+  ),
+  Percentage = 1,
+  Transect = "Legend"
+)
+
+legend_plot <- ggplot(
+  legend_df,
+  aes(
+    x = Transect,
+    y = Percentage,
+    fill = Family_grouped
+  )
+) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order,
+    drop = FALSE
+  ) +
+  labs(fill = "Family") +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.spacing.y = unit(0.05, "cm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+# Extract legend
+legend <- cowplot::get_legend(legend_plot)
+
+
+# -----------------------------
+# Combine plots + legend
+# -----------------------------
+
+plots_row <- cowplot::plot_grid(
+  plot1,
+  plot2,
+  ncol = 2,
+  rel_widths = c(1, 1),
+  align = "h"
+)
+
+combined.2d_clean <- cowplot::plot_grid(
+  legend,
+  plots_row,
+  ncol = 2,
+  rel_widths = c(0.3, 1),
+  align = "h"
+)
+
+combined.2d_clean
+```
+update:
+```{r}
+# -----------------------------
+# Create compact vertical legend
+# -----------------------------
+
+legend_df <- data.frame(
+  Family_grouped = factor(
+    family_order,
+    levels = family_order
+  ),
+  Percentage = 1,
+  Transect = "Legend"
+)
+
+legend_plot <- ggplot(
+  legend_df,
+  aes(
+    x = Transect,
+    y = Percentage,
+    fill = Family_grouped
+  )
+) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(
+    values = my_colors,
+    breaks = family_order,
+    drop = FALSE
+  ) +
+  labs(fill = "Family") +
+  guides(
+    fill = guide_legend(
+      ncol = 1,
+      byrow = TRUE
+    )
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.spacing.y = unit(0.05, "cm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+legend <- cowplot::get_legend(legend_plot)
+```
+
+
+```{r}
+combined.2d_clean <- cowplot::plot_grid(
+  legend,
+  plots_row,
+  ncol = 2,
+  rel_widths = c(0.3, 1),
+  align = "h"
+)
+
+combined.2d_clean
+```
+
+
+
 redoing month plot to match!
 ```{r}
 # -----------------------------
@@ -909,32 +1192,80 @@ abline(h = 0, col = "red")
 
 ~~~~Code for Final Combination Plot!
 
+clean up plots
 
-mg.all.ord1 ~ not using! heatmap_topfamily2,
 
 ```{r}
-top <- cowplot::plot_grid(
-  mg.all.ord1,
-  plot3,
+# -----------------------------
+# Make bar plots slightly narrower
+# and keep legend on the left
+# -----------------------------
+
+combined.2d <- cowplot::plot_grid(
+  legend,
+  cowplot::plot_grid(
+    plot1,
+    plot2,
+    ncol = 2,
+    rel_widths = c(1, 1)
+  ),
   ncol = 2,
-  rel_widths = c(1.5, 1)
+  rel_widths = c(0.40, 1),
+  align = "h"
 )
-top
-```
 
+combined.2d
+```
 
 ```{r}
-#FINALFINALCOMBOPLOT!!!!!!!!!!
-fin <- cowplot::plot_grid(top,combined.2d, ncol = 1, rel_widths    = c(1, 1))
-fin
+# Remove gridlines from both plots
+
+plot3_clean <- plot3 +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+     panel.border = element_blank()
+  )
+
+plot3_clean
 ```
-dowload this and then clean up using adobe/pdf :) ~ all done!
+```{r}
+heatmap_topfamily2_clean <- heatmap_topfamily2 +
+  theme(
+    panel.border = element_blank()
+  )
+
+heatmap_topfamily2_clean
+```
+
+dowload each figure - journal recommendation as 4 stand alone figures (going to do 3 figures - since final panel goes together)
 ```{r}
 ggsave(
-  filename = "fin2.pdf",  # file name and format
-  plot = fin,              # the plot object
-  width = 17,                           # width in inches
-  height = 12,                           # height in inches
-  dpi = 300                             # resolution
+  filename = "monthbarplot.pdf",
+  plot = plot3_clean,
+  width = 5,
+  height = 5,
+  units = "in"
 )
 ```
+
+```{r}
+ggsave(
+  filename = "heatmap.pdf",
+  plot = heatmap_topfamily2_clean,
+  width = 5,
+  height = 5,
+  units = "in"
+)
+```
+
+```{r}
+ggsave(
+  filename = "combined.2d_clean.pdf",
+  plot = combined.2d_clean,
+  width = 7.09,
+  height = 8.66,
+  units = "in"
+)
+```
+
